@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# كابتن سلطان للمساج المنزلي
 
-## Getting Started
+موقع احترافي كامل + نظام حجز أونلاين + لوحة تحكم خاصة لكابتن سلطان، مبني بـ Next.js 16 (App Router) و Supabase.
 
-First, run the development server:
+## المكدس التقني
+
+- Next.js 16 (App Router, TypeScript, Turbopack)
+- Tailwind CSS 4
+- Framer Motion + Lucide React
+- Supabase (Postgres + Auth)
+- React Hook Form + Zod
+- date-fns
+
+## الإعداد
+
+### 1. تثبيت الحزم
+
+```bash
+npm install
+```
+
+### 2. إنشاء مشروع Supabase
+
+1. أنشئ مشروعًا جديدًا على [supabase.com](https://supabase.com).
+2. من **SQL Editor**، شغّل الملفين بالترتيب:
+   - `supabase/migrations/0001_init.sql` — الجداول، الحماية (RLS)، ودالة الحجز الآمنة، والقيد الذي يمنع تعارض المواعيد.
+   - `supabase/migrations/0002_seed.sql` — الخدمات الثمانية الأساسية وجدول العمل الافتراضي (يوميًا 10:00 - 22:00).
+3. من **Authentication > Users**، أنشئ مستخدمًا واحدًا لكابتن سلطان (بريد إلكتروني وكلمة مرور) — هذا هو حساب الدخول للوحة التحكم. لا حاجة لنظام تسجيل عملاء.
+
+### 3. متغيرات البيئة
+
+انسخ `.env.example` إلى `.env.local` وضع بيانات مشروعك (من Project Settings > API):
+
+```bash
+cp .env.example .env.local
+```
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxx
+```
+
+لا حاجة لمفتاح `service_role` إطلاقًا — كل الصلاحيات تُدار عبر RLS ودالة `create_booking` الآمنة (`SECURITY DEFINER`).
+
+### 4. التشغيل محليًا
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+افتح [http://localhost:3000](http://localhost:3000) للموقع، و [http://localhost:3000/login](http://localhost:3000/login) للوحة تحكم كابتن سلطان.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## كيف يعمل نظام الحجز
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- الحجز العام (بدون تسجيل دخول) يمر حصريًا عبر دالة Postgres باسم `create_booking` تعمل بصلاحيات `SECURITY DEFINER`، فلا يحتاج زوار الموقع أي صلاحية مباشرة على جداول العملاء أو الحجوزات.
+- منع تعارض المواعيد مضمون على مستوى قاعدة البيانات عبر **Exclusion Constraint** (`EXCLUDE USING gist`) على نطاق وقت كل حجز، وليس فقط في كود التطبيق — هذا يمنع الحجز المزدوج حتى في حالة الطلبات المتزامنة.
+- جدول `public_booking_slots` view يعرض فقط أوقات الحجوزات المشغولة (بدون بيانات العميل) للسماح بحساب المواعيد المتاحة بأمان.
 
-## Learn More
+## البنية
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/                    # صفحات Next.js (App Router)
+  page.tsx              # الصفحة الرئيسية
+  booking/               # صفحة الحجز
+  login/                 # تسجيل دخول الكابتن
+  dashboard/             # لوحة التحكم (محمية)
+components/
+  navbar/ hero/ sections/ services/ footer/   # أقسام الصفحة الرئيسية
+  booking/               # خطوات الحجز
+  dashboard/             # مكونات لوحة التحكم
+  auth/                  # نموذج تسجيل الدخول
+  ui/                    # مكونات أساسية قابلة لإعادة الاستخدام
+lib/
+  supabase/              # عملاء Supabase (متصفح / سيرفر / middleware)
+  booking/               # منطق الحجز والتوفر والتحقق (zod)
+  dashboard/              # server actions للوحة التحكم
+  constants.ts           # نصوص، مناطق الخدمة، صور
+supabase/migrations/      # سكريبتات قاعدة البيانات
+types/                    # أنواع TypeScript + تعريف قاعدة البيانات
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## النشر على Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. ادفع المشروع إلى مستودع Git.
+2. أنشئ مشروعًا جديدًا على Vercel واربطه بالمستودع.
+3. أضف متغيرات البيئة نفسها (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) في إعدادات المشروع على Vercel.
+4. انشر — لا حاجة لأي إعداد بنية تحتية إضافي.
 
-## Deploy on Vercel
+## ملاحظات
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- الصور المستخدمة في الموقع صور تعبيرية عالية الجودة (Unsplash) بدون أي أشخاص حقيقيين مرتبطين بالكابتن سلطان، حسب متطلبات المشروع.
+- الأسعار والمدد الظاهرة في قسم الخدمات قابلة للتعديل بالكامل من لوحة التحكم دون الحاجة لتعديل الكود.
